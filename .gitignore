@@ -1,0 +1,8 @@
+# Unity cache folders
+Library/
+Temp/
+Obj/
+
+# Builds and Android keystore
+Builds/
+android.keystore
