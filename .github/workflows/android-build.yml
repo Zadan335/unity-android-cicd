@@ -1,0 +1,58 @@
+name: Unity Android CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: unityci/editor:2022.3.10f1-android-3
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache Library
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ runner.os }}-${{ hashFiles('**/Packages/manifest.json') }}
+
+      - name: Decode Android Keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android.keystore
+
+      - name: Activate Unity License
+        run: |
+          echo "${{ secrets.UNITY_LICENSE }}" > unity.ulf
+          unity-editor -batchmode -quit -manualLicenseFile unity.ulf
+
+      - name: Build APK & AAB
+        run: |
+          unity-editor -batchmode -quit -projectPath . -buildTarget Android -executeMethod BuildScript.BuildAndroid
+        env:
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_ALIAS_PASS: ${{ secrets.ANDROID_KEY_ALIAS_PASS }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Android-Builds
+          path: Builds/Android/
+
+      - name: Slack Notification
+        if: success()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data "{
+            \"text\": \"✅ Unity Android Build Successful
+            Repo: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Artifacts: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+          }" \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
