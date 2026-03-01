@@ -19,25 +19,25 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Cache Unity Library for faster builds
+      # 2️⃣ Cache Unity Library
       - name: Cache Unity Library
         uses: actions/cache@v4
         with:
           path: Library
           key: Library-${{ runner.os }}-${{ hashFiles('**/Packages/manifest.json') }}
 
-      # 3️⃣ Inject Android Keystore
+      # 3️⃣ Decode Android keystore
       - name: Decode Android Keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android.keystore
 
-      # 4️⃣ Inject Unity License
+      # 4️⃣ Activate Unity License
       - name: Activate Unity License
         run: |
-          mkdir -p ~/.local/share/unity3d/Unity/
-          echo "${{ secrets.UNITY_LICENSE }}" > ~/.local/share/unity3d/Unity/Unity_lic.ulf
+          mkdir -p /root/.local/share/unity3d/Unity/
+          echo "${{ secrets.UNITY_LICENSE }}" > /root/.local/share/unity3d/Unity/Unity_lic.ulf
 
-      # 5️⃣ Build APK + AAB
+      # 5️⃣ Build Android APK + AAB
       - name: Build Android
         id: build
         run: |
@@ -52,23 +52,23 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_ALIAS_PASS: ${{ secrets.ANDROID_KEY_ALIAS_PASS }}
 
-      # 6️⃣ Print Unity Editor log on failure
+      # 6️⃣ Print Unity Editor log if build fails
       - name: Print Unity Editor log
         if: failure()
         run: |
           echo "=== UNITY EDITOR LOG START ==="
-          cat ~/.local/share/unity3d/Editor/Editor.log
+          cat /root/.local/share/unity3d/Editor/Editor.log || echo "No Editor.log found"
           echo "=== UNITY EDITOR LOG END ==="
 
-      # 7️⃣ Optional: Upload Unity Editor log as artifact
+      # 7️⃣ Upload Editor log as artifact
       - name: Upload Unity Editor log
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: UnityEditorLog
-          path: ~/.local/share/unity3d/Editor/Editor.log
+          path: /root/.local/share/unity3d/Editor/Editor.log
 
-      # 8️⃣ Upload build artifacts
+      # 8️⃣ Upload Android build artifacts
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
