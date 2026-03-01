@@ -15,25 +15,31 @@ jobs:
       image: unityci/editor:2022.3.10f1-android-3
 
     steps:
+      # 1️⃣ Checkout the code
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Cache Unity Library for faster builds
       - name: Cache Unity Library
         uses: actions/cache@v4
         with:
           path: Library
           key: Library-${{ runner.os }}-${{ hashFiles('**/Packages/manifest.json') }}
 
+      # 3️⃣ Inject Android Keystore
       - name: Decode Android Keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android.keystore
 
+      # 4️⃣ Inject Unity License
       - name: Activate Unity License
         run: |
           mkdir -p ~/.local/share/unity3d/Unity/
           echo "${{ secrets.UNITY_LICENSE }}" > ~/.local/share/unity3d/Unity/Unity_lic.ulf
 
+      # 5️⃣ Build APK + AAB
       - name: Build Android
+        id: build
         run: |
           unity-editor \
             -batchmode \
@@ -46,12 +52,30 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_ALIAS_PASS: ${{ secrets.ANDROID_KEY_ALIAS_PASS }}
 
+      # 6️⃣ Print Unity Editor log on failure
+      - name: Print Unity Editor log
+        if: failure()
+        run: |
+          echo "=== UNITY EDITOR LOG START ==="
+          cat ~/.local/share/unity3d/Editor/Editor.log
+          echo "=== UNITY EDITOR LOG END ==="
+
+      # 7️⃣ Optional: Upload Unity Editor log as artifact
+      - name: Upload Unity Editor log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: UnityEditorLog
+          path: ~/.local/share/unity3d/Editor/Editor.log
+
+      # 8️⃣ Upload build artifacts
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Android-Builds
           path: Builds/Android/
 
+      # 9️⃣ Slack notification on success
       - name: Slack Notification (Success)
         if: success()
         run: |
@@ -61,6 +85,7 @@ jobs:
           }" \
           ${{ secrets.SLACK_WEBHOOK_URL }}
 
+      # 🔟 Slack notification on failure
       - name: Slack Notification (Failure)
         if: failure()
         run: |
