@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using System.IO;
 
 public class BuildScript
@@ -8,7 +9,16 @@ public class BuildScript
         string buildPath = "Builds/Android";
         Directory.CreateDirectory(buildPath);
 
-        string[] scenes = { }; // Empty for demo
+        // Ensure at least one scene exists
+        string scenePath = "Assets/Scenes/DemoScene.unity";
+        if (!File.Exists(scenePath))
+        {
+            Directory.CreateDirectory("Assets/Scenes");
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects);
+            EditorSceneManager.SaveScene(scene, scenePath);
+        }
+
+        string[] scenes = { scenePath };
 
         // Build APK
         EditorUserBuildSettings.buildAppBundle = false;
