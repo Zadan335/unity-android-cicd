@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - ci-setup
   workflow_dispatch:
 
 jobs:
@@ -12,70 +11,53 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: unityci/editor:2022.3.10f1-android-3
+      image: unityci/editor:2022.3.20f1-android-1   # Use LTS version, not Unity 6
 
     steps:
-      # 1️⃣ Checkout the code
+      # 1️⃣ Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Cache Unity Library
-      - name: Cache Unity Library
-        uses: actions/cache@v4
-        with:
-          path: Library
-          key: Library-${{ runner.os }}-${{ hashFiles('**/Packages/manifest.json') }}
+      # 2️⃣ Activate Unity License
+      - name: Activate Unity License
+        run: |
+          mkdir -p ~/.local/share/unity3d/Unity/
+          echo "${{ secrets.UNITY_LICENSE }}" | base64 -d > ~/.local/share/unity3d/Unity/Unity_lic.ulf
 
-      # 3️⃣ Decode Android keystore
+      # 3️⃣ Decode Android Keystore
       - name: Decode Android Keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android.keystore
 
-      # 4️⃣ Activate Unity License
-      - name: Activate Unity License
-        run: |
-          mkdir -p /root/.local/share/unity3d/Unity/
-          echo "${{ secrets.UNITY_LICENSE }}" > /root/.local/share/unity3d/Unity/Unity_lic.ulf
-
-      # 5️⃣ Build Android APK + AAB
+      # 4️⃣ Build APK + AAB
       - name: Build Android
-        id: build
         run: |
           unity-editor \
             -batchmode \
+            -nographics \
             -quit \
             -projectPath . \
             -buildTarget Android \
-            -executeMethod BuildScript.BuildAndroid
+            -executeMethod BuildScript.BuildAndroid \
+            -logFile build.log
         env:
           ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_ALIAS_PASS: ${{ secrets.ANDROID_KEY_ALIAS_PASS }}
 
-      # 6️⃣ Print Unity Editor log if build fails
-      - name: Print Unity Editor log
-        if: failure()
-        run: |
-          echo "=== UNITY EDITOR LOG START ==="
-          cat /root/.local/share/unity3d/Editor/Editor.log || echo "No Editor.log found"
-          echo "=== UNITY EDITOR LOG END ==="
+      # 5️⃣ Print Unity Log (always)
+      - name: Print Unity Log
+        if: always()
+        run: cat build.log
 
-      # 7️⃣ Upload Editor log as artifact
-      - name: Upload Unity Editor log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: UnityEditorLog
-          path: /root/.local/share/unity3d/Editor/Editor.log
-
-      # 8️⃣ Upload Android build artifacts
+      # 6️⃣ Upload Artifacts
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Android-Builds
-          path: Builds/Android/
+          path: Builds/
 
-      # 9️⃣ Slack notification on success
+      # 7️⃣ Slack Notification on Success
       - name: Slack Notification (Success)
         if: success()
         run: |
@@ -85,7 +67,7 @@ jobs:
           }" \
           ${{ secrets.SLACK_WEBHOOK_URL }}
 
-      # 🔟 Slack notification on failure
+      # 8️⃣ Slack Notification on Failure
       - name: Slack Notification (Failure)
         if: failure()
         run: |
