@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: unityci/editor:2022.3-android   # Use LTS version, not Unity 6
+      image: unityci/editor:ubuntu-2022.3.59f1-android-3.1.0   # Use LTS version, not Unity 6
 
     steps:
       # 1️⃣ Checkout Repository
